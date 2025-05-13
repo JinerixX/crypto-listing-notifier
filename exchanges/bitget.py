@@ -1,14 +1,26 @@
-import aiohttp
-
-_last_symbols = set()
+import httpx
+from .symbol import Symbol
 
 async def get_new_symbols():
-    url = "https://api.bitget.com/api/spot/v1/public/products"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as resp:
-            data = await resp.json()
-            symbols = {item["symbol"] for item in data["data"]}
-    global _last_symbols
-    new_listings = symbols - _last_symbols
-    _last_symbols = symbols
-    return new_listings
+    spot_url = "https://api.bitget.com/api/spot/v1/public/products"
+    futures_url = "https://api.bitget.com/api/mix/v1/market/contracts?productType=umcbl"
+
+    async with httpx.AsyncClient() as client:
+        spot_resp = await client.get(spot_url)
+        futures_resp = await client.get(futures_url)
+
+    spot_symbols = {s["symbol"].replace("-", "") for s in spot_resp.json().get("data", [])}
+    futures_symbols = {s["symbol"].replace("-", "") for s in futures_resp.json().get("data", [])}
+
+    all_symbols = spot_symbols | futures_symbols
+    result = []
+
+    for symbol in all_symbols:
+        if symbol in spot_symbols and symbol in futures_symbols:
+            result.append(Symbol(symbol, "Both"))
+        elif symbol in spot_symbols:
+            result.append(Symbol(symbol, "Spot"))
+        else:
+            result.append(Symbol(symbol, "Futures"))
+
+    return result
