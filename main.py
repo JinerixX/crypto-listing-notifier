@@ -44,7 +44,7 @@ async def fill_db_silently(exchange_func, exchange_name):
         for symbol in new_symbols:
             is_new_listing(exchange_name, symbol.name, symbol.market_type)
     except Exception as e:
-        logging.error(f"Ошибка при первичной инициализации {exchange_name}: {e}")
+        logging.exception(f"Ошибка при первичной инициализации {exchange_name}")
 
 # Главный цикл
 async def main():
