@@ -7,4 +7,3 @@ __pycache__/
 .venv/
 env/
 *.db-journal
-*.db-journal
