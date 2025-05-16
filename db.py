@@ -2,33 +2,40 @@ import sqlite3
 
 DB_NAME = "listings.db"
 
+_seen = []    
+
+
 def init_db():
-    with sqlite3.connect(DB_NAME) as conn:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS listings (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                exchange TEXT NOT NULL,
-                symbol TEXT NOT NULL,
-                market_type TEXT NOT NULL,
-                UNIQUE(exchange, symbol)
-            )
-        """)
+    """Создаём таблицу (если нужно) и заполняем _seen."""
+    with sqlite3.connect(DB_NAME) as con:
+        con.execute(
+            """CREATE TABLE IF NOT EXISTS listings (
+                   id INTEGER PRIMARY KEY AUTOINCREMENT,
+                   exchange TEXT NOT NULL,
+                   symbol   TEXT NOT NULL,
+                   market_type TEXT NOT NULL,
+                   UNIQUE(exchange, symbol)
+               )"""
+        )
+        _seen.extend(con.execute("SELECT exchange, symbol FROM listings"))
+
 
 def is_db_empty() -> bool:
-    with sqlite3.connect(DB_NAME) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT COUNT(*) FROM listings")
-        count = cur.fetchone()[0]
-        return count == 0
+    return len(_seen) == 0
+
 
 def is_new_listing(exchange: str, symbol: str, market_type: str) -> bool:
-    with sqlite3.connect(DB_NAME) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT 1 FROM listings WHERE exchange=? AND symbol=?", (exchange, symbol))
-        exists = cur.fetchone()
-        if not exists:
-            cur.execute("INSERT INTO listings (exchange, symbol, market_type) VALUES (?, ?, ?)",
-                        (exchange, symbol, market_type))
-            conn.commit()
-            return True
-        return False
+    pair = (exchange, symbol)
+    if pair in _seen:
+        return False        
+
+    with sqlite3.connect(DB_NAME) as con:
+        con.execute(
+            "INSERT OR IGNORE INTO listings (exchange, symbol, market_type) "
+            "VALUES (?, ?, ?)",
+            (exchange, symbol, market_type),
+        )
+        con.commit()
+
+    _seen.append(pair)        # добавляем
+    return True
