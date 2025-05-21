@@ -1,26 +1,31 @@
 import httpx
 from .symbol import Symbol
 
+
+def _clean(ticker: str) -> str:
+    """убираем всё после '_' и дефисы."""
+    return ticker.split("_", 1)[0].replace("-", "")
+
+
 async def get_new_symbols():
     spot_url = "https://api.bitget.com/api/spot/v1/public/products"
-    futures_url = "https://api.bitget.com/api/mix/v1/market/contracts?productType=umcbl"
+    fut_url  = "https://api.bitget.com/api/mix/v1/market/contracts?productType=umcbl"
 
     async with httpx.AsyncClient() as client:
-        spot_resp = await client.get(spot_url)
-        futures_resp = await client.get(futures_url)
+        spot_r, fut_r = await client.get(spot_url), await client.get(fut_url)
 
-    spot_symbols = {s["symbol"].replace("-", "") for s in spot_resp.json().get("data", [])}
-    futures_symbols = {s["symbol"].replace("-", "") for s in futures_resp.json().get("data", [])}
+    spot = {_clean(s["symbol"]) for s in spot_r.json().get("data", [])}
+    fut  = {_clean(s["symbol"]) for s in fut_r.json().get("data", [])}
 
-    all_symbols = spot_symbols | futures_symbols
-    result = []
+    symbols = []
 
-    for symbol in all_symbols:
-        if symbol in spot_symbols and symbol in futures_symbols:
-            result.append(Symbol(symbol, "Both"))
-        elif symbol in spot_symbols:
-            result.append(Symbol(symbol, "Spot"))
+    for sym in spot | fut:
+        if sym in spot and sym in fut:
+            mkt = "Both"
+        elif sym in spot:
+            mkt = "Spot"
         else:
-            result.append(Symbol(symbol, "Futures"))
+            mkt = "Futures"
+        symbols.append(Symbol(sym, mkt))
 
-    return result
+    return symbols
